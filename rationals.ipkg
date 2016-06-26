@@ -1,0 +1,8 @@
+package rationals
+
+opts = "--package contrib"
+
+modules = Data.Rational
+       , Data.Rational.LTEProperties
+       , Data.Rational.PFraction
+
