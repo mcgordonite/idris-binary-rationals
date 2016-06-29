@@ -3,6 +3,7 @@ module Data.Rational
 import Data.Rational.LTEProperties
 import Data.Rational.PFraction
 import Control.Algebra
+import Data.ZZ
 
 ||| A path in the Stern Brocot tree is constructed by choosing either the left
 ||| or right branch.
@@ -57,14 +58,10 @@ infixl 9 #
 ||| @ d The denominator (must be greater than zero)
 export
 total
-(#) : (n : Integer) -> (d : Nat) -> {auto dGtZ : GT d Z} -> Rational
-(#) n d {dGtZ} = case n > 0 of
-  False => case fromInteger (negate n) of
-    Z => Zero
-    S k => Neg (inject (S k) d (LTESucc LTEZero) dGtZ)
-  True => case fromInteger n of
-    Z => Zero
-    S k => Pos (inject (S k) d (LTESucc LTEZero) dGtZ)
+(#) : (n : ZZ) -> (d : Nat) -> {auto dGtZ : GT d Z} -> Rational
+(#) (Pos Z) d {dGtZ} = Zero
+(#) (Pos (S k)) d {dGtZ} = Pos $ inject (S k) d (LTESucc LTEZero) dGtZ
+(#) (NegS k) d {dGtZ} = Neg $ inject (S k) d (LTESucc LTEZero) dGtZ
 
 -- The reciprocal of a Stern Brocot path is calculated by switching branch at every node.
 total
@@ -254,17 +251,17 @@ lNotR Refl impossible
 
 export
 total
-posInjective : Pos xs = Pos ys -> xs = ys
+posInjective : the Rational (Pos xs) = the Rational (Pos ys) -> xs = ys
 posInjective Refl = Refl
 
 export
 total
-negInjective : (the Rational (Neg xs)) = Neg ys -> xs = ys
+negInjective : (the Rational (Neg xs)) = the Rational (Neg ys) -> xs = ys
 negInjective Refl = Refl
 
 export
 total
-posNotNeg : Pos xs = Neg ys -> Void
+posNotNeg : the Rational (Pos xs) = the Rational (Neg ys) -> Void
 posNotNeg Refl impossible
 
 export
