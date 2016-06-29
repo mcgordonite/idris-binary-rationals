@@ -4,6 +4,7 @@ import Data.Rational.LTEProperties
 import Data.Rational.PFraction
 import Control.Algebra
 import Data.ZZ
+import Data.Sign
 
 ||| A path in the Stern Brocot tree is constructed by choosing either the left
 ||| or right branch.
@@ -40,8 +41,7 @@ inject n d nGtZ dGtZ with (cmp n d)
   inject (d + S diff) d nGtZ dGtZ | (CmpGT diff) =
     R :: inject (assert_smaller (d + S diff) (S diff)) d (LTESucc LTEZero) dGtZ
 
-||| Calculate the simplest fraction representation for the given path in the
-||| Stern Brocot tree.
+||| Calculate the fraction representation for the given path in the Stern Brocot tree.
 export
 total
 extract : QPlus -> PFraction
@@ -155,6 +155,12 @@ Ord Rational where
   compare (Neg _) (Pos _) = LT
   compare (Pos a) (Pos b) = compareImpl a b
   compare (Neg a) (Neg b) = compareImpl a b
+
+export
+Signed Rational where
+  sign Zero = Zero
+  sign (Pos _) = Plus
+  sign (Neg _) = Minus
 
 export
 Num Rational where
@@ -271,7 +277,7 @@ posNotZero Refl impossible
 
 export
 total
-negNotZero : Neg xs = Zero -> Void
+negNotZero : the Rational (Neg xs) = Zero -> Void
 negNotZero Refl impossible
 
 export 
