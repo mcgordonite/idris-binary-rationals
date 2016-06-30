@@ -138,6 +138,10 @@ Cast ZZ Rational where
   cast (NegS k) = Neg $ fromNatImpl (S k) (LTESucc LTEZero)
 
 export
+Cast Integer Rational where
+  cast x = cast (the ZZ (cast x))
+
+export
 Eq SBBranch where
   L == L = True
   R == R = True
