@@ -132,6 +132,12 @@ Cast Nat Rational where
   cast (S k) = Pos $ fromNatImpl (S k) (LTESucc LTEZero)
 
 export
+Cast ZZ Rational where
+  cast (Pos Z) = Zero
+  cast (Pos (S k)) = Pos $ fromNatImpl (S k) (LTESucc LTEZero)
+  cast (NegS k) = Neg $ fromNatImpl (S k) (LTESucc LTEZero)
+
+export
 Eq SBBranch where
   L == L = True
   R == R = True
@@ -272,7 +278,7 @@ posNotNeg Refl impossible
 
 export
 total
-posNotZero : Pos xs = Zero -> Void
+posNotZero : the Rational (Pos xs) = Zero -> Void
 posNotZero Refl impossible
 
 export
