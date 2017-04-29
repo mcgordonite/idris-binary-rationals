@@ -2,10 +2,8 @@ package rationals
 
 opts = "--package contrib"
 
-modules = Data.Rational
-       , Data.Rational.LTEProperties
-       , Data.Rational.PFraction
-       , Test.Data.Rational
+modules = Data.QQ.SternBrocot
+        , Test.Data.QQ.SternBrocot
 
-tests = Test.Data.Rational.testRational
+tests = Test.Data.QQ.SternBrocot.testQQ
 
