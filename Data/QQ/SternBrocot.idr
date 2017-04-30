@@ -160,6 +160,168 @@ lteQPlusTransitive (LteQPlusLL _) LteQPlusLR = LteQPlusLR
 lteQPlusTransitive (LteQPlusLL a) (LteQPlusLL b) = lteQPlusFromSub (lteQPlusTransitive a b)
 lteQPlusTransitive (LteQPlusRR a) (LteQPlusRR b) = lteQPlusFromSub (lteQPlusTransitive a b)
 
+------------------------------------------------------
+----- Homographic
+------------------------------------------------------
+
+Coefficients : Type
+Coefficients = Matrix 2 2 ZZ
+
+total
+negateSign : Sign -> Sign
+negateSign Plus = Minus
+negateSign Minus = Plus
+negateSign Zero = Zero
+
+total
+sumSigns : Sign -> Sign -> Sign
+sumSigns Zero x = x
+sumSigns x Zero = x
+sumSigns Plus Minus = Zero
+sumSigns Minus Plus = Zero
+sumSigns Plus Plus = Plus
+sumSigns Minus Minus = Minus
+
+total
+mulSigns : Sign -> Sign -> Sign
+mulSigns Plus Plus = Plus
+mulSigns Plus Minus = Minus
+mulSigns Minus Plus = Minus
+mulSigns Minus Minus = Plus
+mulSigns Zero _ = Zero
+mulSigns _ Zero = Zero
+
+total
+ssg : ZZ -> ZZ -> Sign
+ssg a b = sumSigns (sign a) (sign b)
+
+total
+homographicSign : Coefficients -> QPlus -> (Sign, Coefficients, QPlus)
+homographicSign cs q = 
+  let
+    a = indices 0 0 cs; b = indices 0 1 cs; c = indices 1 0 cs; d = indices 1 1 cs;
+    leftCs = the Coefficients [[a + b, b], [c + b, d]]
+    rightCs = the Coefficients [[a, a + b], [c, c + d]]
+  in 
+    case q of
+      [] => case ssg a b of
+        Zero => (Zero, cs, [])
+        Plus => case ssg c d of 
+          Plus => (Plus, cs, [])
+          _ => (Minus, cs, [])
+        Minus => case ssg c d of
+          Minus => (Plus, cs, [])
+          _ => (Minus, cs, [])
+      (x :: xs) => case b of
+        Pos Z => case d of
+          Pos Z => (mulSigns (sign a) (sign c), cs, q)
+          _ => case ssg c d of
+            Plus => (sign a, cs, q)
+            Minus => (negateSign (sign a), cs, q)
+            Zero => case x of
+              L => homographicSign leftCs xs
+              R => homographicSign rightCs xs
+        _ => case d of
+          Pos Z => case ssg a b of
+            Plus => (sign c, cs, q)
+            Minus => (negateSign (sign c), cs, q)
+            Zero => case x of
+              L => homographicSign leftCs xs
+              R => homographicSign rightCs xs
+          _ => case mulSigns (ssg a b) (ssg c d) of
+            Plus => (Plus, cs, q)
+            Minus => (Minus, cs, q)
+            Zero => case x of
+              L => homographicSign leftCs xs
+              R => homographicSign rightCs xs
+
+data HomographicDec : Nat -> Nat -> Nat -> Nat -> Type where
+  Left1 : LTE p m -> LT q n -> HomographicDec m n p q
+  Right1 : LT p m -> LTE q n -> HomographicDec m n p q
+  Left2 : LTE m p -> LT n q -> HomographicDec m n p q
+  Right2 : LT m p -> LTE n q -> HomographicDec m n p q
+  None: HomographicDec m n p q
+
+total
+decideHomographic : (a : Nat) -> (b : Nat) -> (c : Nat) -> (d : Nat) -> HomographicDec a b c d
+decideHomographic a b c d with (cmp a c, cmp b d)
+  decideHomographic a b a (b + S x) | (CmpEQ, CmpLT x) = Left2 lteRefl (replace (plusSuccRightSucc b x) (lteAddRight (S b)))
+  decideHomographic a (d + S x) a d | (CmpEQ, CmpGT x) = Left1 lteRefl (replace (plusSuccRightSucc d x) (lteAddRight (S d)))
+  decideHomographic a b (a + S x) b | (CmpLT x, CmpEQ) = Right2 (replace (plusSuccRightSucc a x) (lteAddRight (S a))) lteRefl
+  decideHomographic (c + S x) b c b | (CmpGT x, CmpEQ) = Right1 (replace (plusSuccRightSucc c x) (lteAddRight (S c))) lteRefl
+  decideHomographic a b (a + S x) (b + S y) | (CmpLT x, CmpLT y) = Left2 (lteAddRight a) (replace (plusSuccRightSucc b y) (lteAddRight (S b)))
+  decideHomographic (c + S x) (d + S y) c d | (CmpGT x, CmpGT y) = Left1 (lteAddRight c) (replace (plusSuccRightSucc d y) (lteAddRight (S d)))
+  decideHomographic a b a b | (CmpEQ, CmpEQ) = None
+  decideHomographic (c + S x) b c (b + S y) | (CmpGT x, CmpLT y) = None
+  decideHomographic a (d + S y) (a + S x) d | (CmpLT x, CmpGT y) = None
+
+total
+ltePlusLte : LTE x y -> LTE x (y + z)
+ltePlusLte {x = Z} {y = y} {z} LTEZero = LTEZero
+ltePlusLte {x = (S left)} {y = (S right)} {z} (LTESucc prf) = LTESucc (ltePlusLte prf)
+
+total
+lteMinus : (aLtB : LT a b) -> GT ((-) {smaller = lteSuccLeft aLtB} b a) Z
+lteMinus {a = Z} {b = (S _)} (LTESucc LTEZero) = LTESucc LTEZero
+lteMinus {a = (S _)} {b = (S _)} (LTESucc prf) = lteMinus prf
+
+total
+ltePlusMinusMinus : LTE a b -> 
+                    (cLtD : LT c d) -> 
+                    LTE 1 (plus (b - a) ((-) {smaller = lteSuccLeft cLtD} d c))
+ltePlusMinusMinus {a} {b} {c} {d} aLteB cLtD = 
+  let commutePrf = plusCommutative ((-) {smaller = lteSuccLeft cLtD} d c) (b - a)
+  in replace commutePrf (ltePlusLte {z = b - a} (lteMinus cLtD))
+
+total
+homographicOutput : (a : Nat) -> (b : Nat) -> (c : Nat) -> (d : Nat) ->
+                    .(aBGtZ : GT (a + b) Z) -> .(cDGtZ : GT (c + d) Z) ->
+                    QPlus -> QPlus
+homographicOutput a b c d aBGtZ cDGtZ [] = injectQPlus (a + b) (c + d) aBGtZ cDGtZ
+homographicOutput a b c d aBGtZ cDGtZ (x :: xs) with (decideHomographic a b c d)
+  homographicOutput a b c d aBGtZ cDGtZ (x :: xs) | (Left1 cLteA dLtB) = 
+    R :: (homographicOutput (a - c) ((-) {smaller = lteSuccLeft dLtB} b d) c d (ltePlusMinusMinus cLteA dLtB) cDGtZ xs)
+  homographicOutput a b c d aBGtZ cDGtZ (x :: xs) | (Right1 cLtA dLteB) =
+    let 
+      aMinusC = (-) {smaller = lteSuccLeft cLtA} a c
+      commutePrf = plusCommutative (b - d) aMinusC
+    in
+      R :: homographicOutput aMinusC (b - d) c d (replace commutePrf (ltePlusMinusMinus dLteB cLtA)) cDGtZ xs
+  homographicOutput a b c d aBGtZ cDGtZ (x :: xs) | (Left2 aLteC bLtD) = 
+    L :: homographicOutput a b (c - a) ((-) {smaller = lteSuccLeft bLtD} d b) aBGtZ (ltePlusMinusMinus aLteC bLtD) xs
+  homographicOutput a b c d aBGtZ cDGtZ (x :: xs) | (Right2 aLtC bLteD) =
+    let
+      cMinusA = (-) {smaller = lteSuccLeft aLtC} c a
+      commutePrf = plusCommutative (d - b) cMinusA 
+    in
+      L :: homographicOutput a b cMinusA (d - b) aBGtZ (replace commutePrf (ltePlusMinusMinus bLteD aLtC)) xs
+  homographicOutput a b c d aBGtZ cDGtZ (L :: xs) | None = 
+    homographicOutput (a + b) b (c + d) d (ltePlusLte aBGtZ) (ltePlusLte cDGtZ) xs
+  homographicOutput a b c d aBGtZ cDGtZ (R :: xs) | None = 
+    let
+      aABGtZ = replace (plusCommutative (a + b) a) (ltePlusLte {z = a} aBGtZ)
+      cCDGtZ = replace (plusCommutative (c + d) c) (ltePlusLte {z = c} cDGtZ)
+    in homographicOutput a (a + b) c (c + d) aABGtZ cCDGtZ xs
+
+data HomographicPred : ZZ -> ZZ -> QPlus -> Type where
+  CZ : c = Pos Z -> Not (d = Pos Z) -> HomographicPred c d _
+  CNZ : (cNotZ : Not (c = Pos Z)) -> Not (Neg q = injectQQ d c cNotZ) -> HomographicPred c d q
+
+total
+homographicQPlus : (a : ZZ) -> (b : ZZ) -> (c : ZZ) -> (d : ZZ) ->
+                    (q : QPlus) -> HomographicPred c d q -> QQ
+homographicQPlus a b c d q p with (a * d == c * b)
+  homographicQPlus a b (Pos Z) d q (CZ _ dNotZ) | True = injectQQ b d dNotZ
+  homographicQPlus a b (Pos Z) d q (CNZ cNotZ _) | True = void (cNotZ Refl)
+  homographicQPlus _ _ (Pos (S _)) _ _ (CZ Refl _) | True impossible
+  homographicQPlus a b (Pos (S k)) d q (CNZ cNotZ f) | True = injectQQ a (Pos (S k)) cNotZ
+  homographicQPlus _ _ (NegS _) _ _ (CZ Refl _) | True impossible
+  homographicQPlus a b (NegS k) d q (CNZ cNotZ f) | True = injectQQ a (NegS k) cNotZ
+  homographicQPlus a b c d q p | False with (homographicSign [[a, b], [c, d]] q)
+    homographicQPlus a b c d q p | False | (Zero, _, _) = Zero
+    homographicQPlus a b c d q p | False | (Plus, [[as, bs], [cs, ds]], qs) = Pos (homographicOutput (absZ as) (absZ bs) (absZ cs) (absZ ds) ?homographicQPlus_1 ?homographicQPlus_2 qs)
+    homographicQPlus a b c d q p | False | (Minus, [[as, bs], [cs, ds]], qs) = Neg (homographicOutput (absZ as) (absZ bs) (absZ cs) (absZ ds) ?homographicQPlus_3 ?homographicQPlus_4 qs)
+
 --------------------------------------------------------
 ------- Interface implementations
 --------------------------------------------------------
